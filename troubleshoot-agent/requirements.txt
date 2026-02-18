@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+anthropic
+openai
+chromadb
+langchain
+langchain-openai
+langchain-community
+sentence-transformers
+tavily-python
+pydub
+python-multipart
+python-dotenv
+httpx
+aiofiles
+pillow
+pypdf

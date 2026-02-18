@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARIA — iPhone Troubleshooting Agent</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <span class="header-logo">◈ ARIA</span>
+      <span class="header-title">iPhone Troubleshooting Agent</span>
+      <span class="header-subtitle">Voice-enabled support</span>
+    </div>
+    <div class="header-right">
+      <span class="live-dot" title="Live"></span>
+      <button class="settings-btn" type="button" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <div class="panels">
+    <!-- Left: Document Manager -->
+    <aside class="panel panel-left">
+      <div class="docs-upload" id="docs-upload" role="button" tabindex="0">
+        Drop PDF, MD, or TXT here — or click to upload
+      </div>
+      <input type="file" id="file-input" accept=".pdf,.md,.txt" multiple />
+      <div class="docs-list" id="docs-list"></div>
+    </aside>
+
+    <!-- Center: Conversation -->
+    <main class="panel panel-center">
+      <div class="conversation" id="conversation"></div>
+      <div class="input-bar">
+        <button type="button" class="hold-speak" id="hold-speak">🎙 Hold to Speak</button>
+        <button type="button" class="attach-btn" id="attach-image" aria-label="Attach image">📎</button>
+        <input type="file" id="image-input" accept="image/*" capture="environment" />
+        <div class="text-input-wrap">
+          <input type="text" id="text-input" placeholder="Type your message..." />
+          <button type="button" id="send-btn">↵ Send</button>
+        </div>
+        <div class="voice-status" id="voice-status"></div>
+      </div>
+    </main>
+
+    <!-- Right: Session Context -->
+    <aside class="panel panel-right context-panel">
+      <div class="context-section">
+        <h3>Issue Category</h3>
+        <span class="issue-badge" id="issue-badge">—</span>
+      </div>
+      <div class="context-section">
+        <h3>Steps Attempted</h3>
+        <ul class="steps-list" id="steps-list"></ul>
+      </div>
+      <div class="context-section">
+        <h3>Sources Used</h3>
+        <div class="sources-list" id="sources-list"></div>
+      </div>
+      <div id="escalation-alert" class="escalation-alert" style="display: none;">
+        Consider contacting Apple Support.
+      </div>
+    </aside>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
