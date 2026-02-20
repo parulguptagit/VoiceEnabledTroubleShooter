@@ -7,11 +7,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from this package's directory so it works regardless of CWD
+_env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_env_path)
 
 # --- Embedding & LLM ---
 EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI; 1536 dims, cost-effective
-LLM_MODEL = "claude-3-5-sonnet-20241022"    # Anthropic Claude via anthropic SDK
+LLM_MODEL = "claude-opus-4-6"    # Anthropic Claude via anthropic SDK
 
 # --- Vector DB (ChromaDB: zero-infra, persistent; swap to Pinecone/Weaviate for prod) ---
 VECTOR_DB = "chromadb"

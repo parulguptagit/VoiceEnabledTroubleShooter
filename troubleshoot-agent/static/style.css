@@ -445,8 +445,13 @@ body {
   margin-top: 12px;
 }
 
-/* File input hidden */
+/* File inputs: visually hidden so programmatic .click() works in all browsers */
 #file-input,
 #image-input {
-  display: none;
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
 }

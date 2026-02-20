@@ -9,7 +9,7 @@ Technology choices (inline):
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import chromadb
 from chromadb.config import Settings
@@ -32,9 +32,9 @@ from config import (
 logger = logging.getLogger(__name__)
 
 # Lazy-initialized globals
-_embeddings: OpenAIEmbeddings | None = None
-_client: OpenAI | None = None
-_chroma_client: chromadb.PersistentClient | None = None
+_embeddings: Optional[OpenAIEmbeddings] = None
+_client: Optional[OpenAI] = None
+_chroma_client: Optional[chromadb.PersistentClient] = None
 _collection_name = "troubleshoot_docs"
 _reranker = None
 

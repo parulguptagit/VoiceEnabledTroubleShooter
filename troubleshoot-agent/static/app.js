@@ -5,29 +5,31 @@
 
 const API_BASE = ''; // same origin when served by FastAPI
 
-let sessionId = localStorage.getItem('aria_session_id') || crypto.randomUUID();
-localStorage.setItem('aria_session_id', sessionId);
+function getOrCreateSessionId() {
+  try {
+    const stored = localStorage.getItem('aria_session_id');
+    if (stored) return stored;
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      const id = crypto.randomUUID();
+      localStorage.setItem('aria_session_id', id);
+      return id;
+    }
+    return 'aria-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+  } catch (_) {
+    return 'aria-' + Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+  }
+}
+let sessionId = getOrCreateSessionId();
 
 let mediaRecorder = null;
 let audioChunks = [];
 let stream = null;
 let currentImageBase64 = null;
 
-// --- DOM ---
-const conversation = document.getElementById('conversation');
-const textInput = document.getElementById('text-input');
-const sendBtn = document.getElementById('send-btn');
-const holdSpeak = document.getElementById('hold-speak');
-const voiceStatus = document.getElementById('voice-status');
-const docsUpload = document.getElementById('docs-upload');
-const fileInput = document.getElementById('file-input');
-const docsList = document.getElementById('docs-list');
-const attachImage = document.getElementById('attach-image');
-const imageInput = document.getElementById('image-input');
-const issueBadge = document.getElementById('issue-badge');
-const stepsList = document.getElementById('steps-list');
-const sourcesList = document.getElementById('sources-list');
-const escalationAlert = document.getElementById('escalation-alert');
+// --- DOM (filled when ready) ---
+let conversation, textInput, sendBtn, holdSpeak, voiceStatus;
+let docsUpload, fileInput, docsList, attachImage, imageInput;
+let issueBadge, stepsList, sourcesList, escalationAlert;
 
 // --- Opening message ---
 function showOpeningMessage() {
@@ -36,11 +38,12 @@ function showOpeningMessage() {
 }
 
 function setVoiceStatus(text) {
-  voiceStatus.textContent = text;
+  if (voiceStatus) voiceStatus.textContent = text;
 }
 
 // --- Messages ---
 function appendUserMessage(text, imageUrl = null) {
+  if (!conversation) return;
   const div = document.createElement('div');
   div.className = 'message user';
   let html = `<div class="message-text">${escapeHtml(text)}</div>`;
@@ -53,6 +56,7 @@ function appendUserMessage(text, imageUrl = null) {
 }
 
 function appendAriaMessage(text, sources = [], audioBase64 = null) {
+  if (!conversation) return;
   const div = document.createElement('div');
   div.className = 'message aria';
   let html = '<span class="message-avatar">◈</span>';
@@ -76,6 +80,7 @@ function appendAriaMessage(text, sources = [], audioBase64 = null) {
 }
 
 function appendTyping() {
+  if (!conversation) return;
   const div = document.createElement('div');
   div.className = 'message aria';
   div.id = 'typing-indicator';
@@ -144,7 +149,7 @@ async function sendMessage(text, imageBase64 = null) {
     currentImageBase64 = imageBase64;
   }
   appendUserMessage(msg, imageUrl);
-  textInput.value = '';
+  if (textInput) textInput.value = '';
   removeTyping();
   appendTyping();
   setVoiceStatus('Thinking...');
@@ -165,11 +170,10 @@ async function sendMessage(text, imageBase64 = null) {
 }
 
 function updateContext(data) {
-  if (data.sources && data.sources.length) {
+  if (sourcesList && data.sources && data.sources.length) {
     sourcesList.innerHTML = data.sources.map(s => `<a href="${s.startsWith('http') ? s : '#'}" target="_blank" rel="noopener">${escapeHtml(s)}</a>`).join('');
   }
-  const steps = stepsList.querySelectorAll('li');
-  if (data.text) {
+  if (stepsList && data.text) {
     const li = document.createElement('li');
     li.textContent = data.text.slice(0, 60) + (data.text.length > 60 ? '…' : '');
     stepsList.appendChild(li);
@@ -197,7 +201,7 @@ async function startRecording() {
       setVoiceStatus('');
     };
     mediaRecorder.start();
-    holdSpeak.classList.add('recording');
+    if (holdSpeak) holdSpeak.classList.add('recording');
     setVoiceStatus('Listening...');
   } catch (err) {
     console.error('Microphone access denied', err);
@@ -208,45 +212,54 @@ async function startRecording() {
 function stopRecording() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
-    holdSpeak.classList.remove('recording');
+    if (holdSpeak) holdSpeak.classList.remove('recording');
   }
 }
 
-holdSpeak.addEventListener('mousedown', (e) => { e.preventDefault(); startRecording(); });
-holdSpeak.addEventListener('mouseup', stopRecording);
-holdSpeak.addEventListener('mouseleave', stopRecording);
-holdSpeak.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
-holdSpeak.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
-
-// --- Send button & Enter ---
-sendBtn.addEventListener('click', () => sendMessage(textInput.value.trim(), null));
-textInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage(textInput.value.trim(), null);
+function setupListeners() {
+  // --- Voice recording ---
+  if (holdSpeak) {
+    holdSpeak.addEventListener('mousedown', (e) => { e.preventDefault(); startRecording(); });
+    holdSpeak.addEventListener('mouseup', stopRecording);
+    holdSpeak.addEventListener('mouseleave', stopRecording);
+    holdSpeak.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+    holdSpeak.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
   }
-});
 
-// --- Document upload ---
-docsUpload.addEventListener('click', () => fileInput.click());
-docsUpload.addEventListener('dragover', (e) => { e.preventDefault(); docsUpload.classList.add('drag-over'); });
-docsUpload.addEventListener('dragleave', () => docsUpload.classList.remove('drag-over'));
-docsUpload.addEventListener('drop', async (e) => {
-  e.preventDefault();
-  docsUpload.classList.remove('drag-over');
-  const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|md|txt)$/i.test(f.name));
-  for (const file of files) await uploadDoc(file);
-});
+  // --- Send button & Enter ---
+  if (sendBtn) sendBtn.addEventListener('click', () => sendMessage(textInput ? textInput.value.trim() : '', null));
+  if (textInput) {
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(textInput.value.trim(), null);
+      }
+    });
+  }
 
-fileInput.addEventListener('change', async () => {
-  const files = Array.from(fileInput.files || []);
-  fileInput.value = '';
-  for (const file of files) await uploadDoc(file);
-});
+  // --- Document upload (label "for=file-input" handles click natively; we add drag-drop) ---
+  if (docsUpload) {
+    docsUpload.addEventListener('dragover', (e) => { e.preventDefault(); docsUpload.classList.add('drag-over'); });
+    docsUpload.addEventListener('dragleave', () => docsUpload.classList.remove('drag-over'));
+    docsUpload.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      docsUpload.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|md|txt)$/i.test(f.name));
+      for (const file of files) await uploadDoc(file);
+    });
+  }
+  if (fileInput) {
+    fileInput.addEventListener('change', async () => {
+      const files = Array.from(fileInput.files || []);
+      fileInput.value = '';
+      for (const file of files) await uploadDoc(file);
+    });
+  }
 
 async function uploadDoc(file) {
   try {
     const result = await apiUploadDocument(file);
+    if (!docsList) return;
     const item = document.createElement('div');
     item.className = 'doc-item';
     item.innerHTML = `<span>${escapeHtml(result.filename)} <span class="badge">${result.chunks_created} chunks</span></span><span class="delete-doc" data-filename="${escapeHtml(result.filename)}">✕</span>`;
@@ -256,38 +269,95 @@ async function uploadDoc(file) {
   }
 }
 
-// --- Image attach ---
-attachImage.addEventListener('click', () => imageInput.click());
-imageInput.addEventListener('change', () => {
-  const file = imageInput.files && imageInput.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const base64 = reader.result.split(',')[1];
-    if (base64) sendMessage('(See attached image)', base64);
-  };
-  reader.readAsDataURL(file);
-  imageInput.value = '';
-});
-
-// --- Load session & docs on load ---
-async function init() {
-  const session = await apiSession();
-  if (session.history && session.history.length > 0) {
-    session.history.forEach((m) => {
-      if (m.role === 'user') appendUserMessage(m.content);
-      else appendAriaMessage(m.content, []);
+  // --- Image attach ---
+  if (attachImage && imageInput) {
+    attachImage.addEventListener('click', () => imageInput.click());
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files && imageInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        if (base64) sendMessage('(See attached image)', base64);
+      };
+      reader.readAsDataURL(file);
+      imageInput.value = '';
     });
-  } else {
-    showOpeningMessage();
   }
-  const docs = await apiDocuments();
-  (docs.documents || []).forEach(d => {
-    const item = document.createElement('div');
-    item.className = 'doc-item';
-    item.innerHTML = `<span>${escapeHtml(d.filename)} <span class="badge">${d.chunks_created} chunks</span></span>`;
-    docsList.appendChild(item);
-  });
+
+  // --- Load session & docs on load ---
+  init();
 }
 
-init();
+async function init() {
+  if (!conversation) return;
+  try {
+    const session = await apiSession();
+    if (session.history && session.history.length > 0) {
+      session.history.forEach((m) => {
+        if (m.role === 'user') appendUserMessage(m.content);
+        else appendAriaMessage(m.content, []);
+      });
+    } else {
+      showOpeningMessage();
+    }
+    const docs = await apiDocuments();
+    if (docsList && (docs.documents || []).length) {
+      (docs.documents || []).forEach(d => {
+        const item = document.createElement('div');
+        item.className = 'doc-item';
+        item.innerHTML = `<span>${escapeHtml(d.filename)} <span class="badge">${d.chunks_created} chunks</span></span>`;
+        docsList.appendChild(item);
+      });
+    }
+  } catch (e) {
+    console.error('Init failed (is the server running at http://localhost:8000?)', e);
+    appendAriaMessage('Could not reach the server. Start it with: python main.py', []);
+  }
+}
+
+function bindDom() {
+  conversation = document.getElementById('conversation');
+  textInput = document.getElementById('text-input');
+  sendBtn = document.getElementById('send-btn');
+  holdSpeak = document.getElementById('hold-speak');
+  voiceStatus = document.getElementById('voice-status');
+  docsUpload = document.getElementById('docs-upload');
+  fileInput = document.getElementById('file-input');
+  docsList = document.getElementById('docs-list');
+  attachImage = document.getElementById('attach-image');
+  imageInput = document.getElementById('image-input');
+  issueBadge = document.getElementById('issue-badge');
+  stepsList = document.getElementById('steps-list');
+  sourcesList = document.getElementById('sources-list');
+  escalationAlert = document.getElementById('escalation-alert');
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', runApp);
+} else {
+  runApp();
+}
+
+function runApp() {
+  try {
+    if (window.location.protocol === 'file:') {
+      var w = document.getElementById('file-protocol-warning');
+      if (w) w.style.display = 'block';
+      return;
+    }
+    bindDom();
+    setupListeners();
+    document.body.setAttribute('data-aria-ready', 'true');
+  } catch (err) {
+    console.error('ARIA init error:', err);
+    var msg = document.getElementById('conversation');
+    if (msg) {
+      msg.innerHTML = '<div class="message aria" style="color: var(--error);"><strong>Script error:</strong> ' + String(err.message) + '</div>';
+    }
+  }
+}
+
+function onReady() {
+  runApp();
+}

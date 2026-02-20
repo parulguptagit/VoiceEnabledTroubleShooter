@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
+  <div id="file-protocol-warning" style="display: none; position: fixed; top: 0; left: 0; right: 0; background: #c00; color: #fff; padding: 10px; text-align: center; z-index: 9999;">
+    Open this app from the server: <strong>http://localhost:8000</strong> (run <code>python main.py</code> first). Buttons will not work when opening the HTML file directly.
+  </div>
   <header class="header">
     <div class="header-left">
       <span class="header-logo">◈ ARIA</span>
@@ -22,9 +25,9 @@
   <div class="panels">
     <!-- Left: Document Manager -->
     <aside class="panel panel-left">
-      <div class="docs-upload" id="docs-upload" role="button" tabindex="0">
+      <label class="docs-upload" id="docs-upload" for="file-input">
         Drop PDF, MD, or TXT here — or click to upload
-      </div>
+      </label>
       <input type="file" id="file-input" accept=".pdf,.md,.txt" multiple />
       <div class="docs-list" id="docs-list"></div>
     </aside>
