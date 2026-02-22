@@ -29,7 +29,7 @@ let currentImageBase64 = null;
 // --- DOM (filled when ready) ---
 let conversation, textInput, sendBtn, holdSpeak, voiceStatus;
 let docsUpload, fileInput, docsList, attachImage, imageInput;
-let issueBadge, stepsList, sourcesList, escalationAlert;
+let issueBadge, stepsList, sourcesList, escalationAlert, processStepsList;
 
 // --- Opening message ---
 function showOpeningMessage() {
@@ -55,17 +55,28 @@ function appendUserMessage(text, imageUrl = null) {
   conversation.scrollTop = conversation.scrollHeight;
 }
 
+function renderMarkdown(text) {
+  if (!text) return '';
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({ gfm: true, breaks: true });
+    return marked.parse(text);
+  }
+  return escapeHtml(text);
+}
+
 function appendAriaMessage(text, sources = [], audioBase64 = null) {
   if (!conversation) return;
   const div = document.createElement('div');
   div.className = 'message aria';
   let html = '<span class="message-avatar">◈</span>';
-  html += `<div class="message-text">${escapeHtml(text)}</div>`;
+  html += '<div class="message-text markdown-body">' + renderMarkdown(text) + '</div>';
   if (sources && sources.length) {
     html += '<div class="message-sources">';
     sources.forEach(s => {
-      const href = s.startsWith('http') ? s : '#';
-      html += `<a class="source-pill" href="${href}" target="_blank" rel="noopener">${escapeHtml(s)}</a>`;
+      const url = typeof s === 'string' ? s : (s && (s.url || s));
+      const href = url && String(url).startsWith('http') ? url : '#';
+      const label = typeof s === 'string' ? s : (s && (s.title || s.url) || '');
+      html += `<a class="source-pill" href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(String(label))}</a>`;
     });
     html += '</div>';
   }
@@ -170,6 +181,16 @@ async function sendMessage(text, imageBase64 = null) {
 }
 
 function updateContext(data) {
+  if (processStepsList && data.steps && Array.isArray(data.steps)) {
+    processStepsList.innerHTML = '';
+    data.steps.forEach(function(step) {
+      const li = document.createElement('li');
+      li.className = 'process-step process-step-' + (step.phase || 'observe');
+      const phaseLabel = (step.phase === 'think' ? 'Think' : step.phase === 'act' ? 'Act' : 'Observe') + ': ';
+      li.textContent = phaseLabel + (step.text || '');
+      processStepsList.appendChild(li);
+    });
+  }
   if (sourcesList && data.sources && data.sources.length) {
     sourcesList.innerHTML = data.sources.map(s => `<a href="${s.startsWith('http') ? s : '#'}" target="_blank" rel="noopener">${escapeHtml(s)}</a>`).join('');
   }
@@ -331,6 +352,7 @@ function bindDom() {
   stepsList = document.getElementById('steps-list');
   sourcesList = document.getElementById('sources-list');
   escalationAlert = document.getElementById('escalation-alert');
+  processStepsList = document.getElementById('process-steps-list');
 }
 
 if (document.readyState === 'loading') {

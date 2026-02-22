@@ -52,11 +52,9 @@ def _parse_date(published: str | None) -> datetime | None:
 
 def search(query: str, top_k: int = TOP_K_WEB) -> list[dict]:
     """
-    Search the web via Tavily. Each result contains:
-    - title, url, content (str)
-    - domain (str)
-    - priority_score (float)
-    - published_date (str)
+    Search the web via Tavily, restricted to Apple domains (support.apple.com, apple.com,
+    discussions.apple.com) so we get authoritative answers when RAG has no good match.
+    Each result contains: title, url, content, domain, priority_score, published_date.
     """
     if not TAVILY_API_KEY:
         logger.warning("TAVILY_API_KEY not set; skipping web search")
@@ -64,7 +62,11 @@ def search(query: str, top_k: int = TOP_K_WEB) -> list[dict]:
     try:
         from tavily import TavilyClient
         client = TavilyClient(api_key=TAVILY_API_KEY)
-        response = client.search(query=query, max_results=max(top_k, 5), include_domains=WEB_SEARCH_PRIORITY_DOMAINS or None)
+        response = client.search(
+            query=query,
+            max_results=max(top_k, 5),
+            include_domains=WEB_SEARCH_PRIORITY_DOMAINS or None,
+        )
         results = getattr(response, "results", None) or []
         out = []
         for r in results:
@@ -110,8 +112,8 @@ def rank_results(results: list[dict]) -> list[dict]:
     return results
 
 
-def is_web_search_needed(rag_scores: list[float], threshold: float = 0.75) -> bool:
-    """Return True if top RAG score is below threshold — trigger web search as fallback."""
+def is_web_search_needed(rag_scores: list[float], threshold: float = 0.85) -> bool:
+    """Return True if no RAG results or top RAG score below threshold — then we search web (e.g. support.apple.com, apple.com)."""
     if not rag_scores:
         return True
     return float(rag_scores[0]) < threshold

@@ -1,22 +1,22 @@
-/* Mission Control Dark — premium dark UI for ARIA */
+/* ARIA — white background theme */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg-primary: #080c10;
-  --bg-secondary: #0d1117;
-  --bg-tertiary: #161b22;
-  --accent-cyan: #00d4ff;
-  --accent-teal: #00b4a0;
-  --accent-amber: #ffa040;
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-muted: #484f58;
-  --border-subtle: #21262d;
-  --border-active: rgba(0, 212, 255, 0.2);
-  --success: #3fb950;
-  --error: #f85149;
-  --user-bubble: #1f3a5f;
-  --aria-bubble: #12261a;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eef1f4;
+  --accent-cyan: #0969da;
+  --accent-teal: #0a6e5a;
+  --accent-amber: #bf8700;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --text-muted: #8c959f;
+  --border-subtle: #d0d7de;
+  --border-active: rgba(9, 105, 218, 0.3);
+  --success: #1a7f37;
+  --error: #cf222e;
+  --user-bubble: #ddf4ff;
+  --aria-bubble: #f0f6fc;
 }
 
 * {
@@ -213,13 +213,14 @@ body {
   background: var(--aria-bubble);
   border-radius: 12px 12px 12px 4px;
   border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }
 .message-avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   background: var(--accent-cyan);
-  color: var(--bg-primary);
+  color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -230,9 +231,22 @@ body {
 }
 .message-text {
   line-height: 1.5;
-  white-space: pre-wrap;
   word-break: break-word;
 }
+.message-text.markdown-body {
+  font-size: 0.95rem;
+}
+.markdown-body h1 { font-size: 1.25rem; margin: 0.5em 0 0.25em; font-weight: 600; }
+.markdown-body h2 { font-size: 1.1rem; margin: 0.5em 0 0.25em; font-weight: 600; }
+.markdown-body h3 { font-size: 1rem; margin: 0.4em 0 0.2em; font-weight: 600; }
+.markdown-body p { margin: 0.35em 0; }
+.markdown-body strong { font-weight: 600; }
+.markdown-body em { font-style: italic; }
+.markdown-body ul { margin: 0.35em 0; padding-left: 1.4em; }
+.markdown-body ol { margin: 0.35em 0; padding-left: 1.4em; }
+.markdown-body code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: var(--bg-tertiary); padding: 0.15em 0.4em; border-radius: 4px; }
+.markdown-body pre { margin: 0.5em 0; padding: 10px; background: var(--bg-tertiary); border-radius: 6px; overflow-x: auto; }
+.markdown-body pre code { background: none; padding: 0; }
 .message-sources {
   margin-top: 8px;
   display: flex;
@@ -370,7 +384,7 @@ body {
 .text-input-wrap button {
   padding: 10px 16px;
   background: var(--accent-cyan);
-  color: var(--bg-primary);
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -391,6 +405,7 @@ body {
 .context-panel {
   padding: 16px;
   overflow-y: auto;
+  background: var(--bg-secondary);
 }
 .context-section {
   margin-bottom: 20px;
@@ -402,6 +417,36 @@ body {
   color: var(--text-muted);
   margin-bottom: 8px;
 }
+.process-steps-section {
+  margin-bottom: 16px;
+}
+.process-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.process-step {
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  border-radius: 6px;
+  border-left: 3px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+.process-step-think {
+  border-left-color: var(--accent-cyan);
+  background: rgba(9, 105, 218, 0.06);
+}
+.process-step-act {
+  border-left-color: var(--accent-teal);
+  background: rgba(10, 110, 90, 0.06);
+}
+.process-step-observe {
+  border-left-color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
 .issue-badge {
   display: inline-block;
   padding: 6px 12px;
@@ -411,6 +456,8 @@ body {
 }
 .steps-list {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 .steps-list li {
   padding: 6px 0;

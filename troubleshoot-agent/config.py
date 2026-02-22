@@ -26,7 +26,7 @@ CHUNK_OVERLAP = 64
 # --- Retrieval ---
 TOP_K_RAG = 5
 TOP_K_WEB = 3
-RAG_SCORE_THRESHOLD = 0.75  # Below this → trigger web search fallback
+RAG_SCORE_THRESHOLD = 0.85  # Below this → trigger web search (support.apple.com, apple.com, etc.)
 
 # --- Web search (Tavily: RAG/agent-friendly, clean parsed results) ---
 WEB_SEARCH_PRIORITY_DOMAINS = [

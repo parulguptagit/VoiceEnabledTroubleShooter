@@ -23,6 +23,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import RAG_SCORE_THRESHOLD, TOP_K_RAG, TOP_K_WEB
 from modules import context_manager, image_handler, llm_agent, rag_engine, voice_stt, voice_tts, web_search
 
+# Guardrail: only allow web search for iPhone/Apple device troubleshooting
+IPHONE_RELATED_KEYWORDS = (
+    "iphone", "apple", "ios", "ipad", "watch", "airpods",
+    "battery", "storage", "wifi", "bluetooth", "screen", "crash", "overheat",
+    "settings", "update", "restore", "backup", "face id", "touch id",
+    "not working", "issue", "problem", "fix", "troubleshoot", "help",
+)
+
+
+def is_iphone_related_query(message: str) -> bool:
+    """True if the query is about iPhone/Apple device troubleshooting (guardrail for web search)."""
+    if not message or not message.strip():
+        return False
+    text = message.lower().strip()
+    return any(kw in text for kw in IPHONE_RELATED_KEYWORDS)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -111,13 +127,14 @@ async def transcribe(audio: UploadFile = File(...)) -> dict[str, Any]:
 
 @app.post("/api/chat")
 async def chat(body: ChatBody) -> dict[str, Any]:
-    """Orchestrate: context → RAG → web (if needed) → LLM → TTS. Return text + audio_base64 + sources."""
+    """Orchestrate: context → RAG → web (if needed) → LLM → TTS. Return text + audio_base64 + sources + steps (Think/Act/Observe)."""
     session_id = body.session_id or str(uuid.uuid4())
     if session_id not in sessions:
         sessions[session_id] = context_manager.ConversationContext(session_id)
     ctx = sessions[session_id]
     message = (body.message or "").strip()
     image_description: str | None = None
+    steps: list[dict[str, str]] = []  # [{ "phase": "think"|"act"|"observe", "text": "..." }]
 
     if body.image_base64:
         try:
@@ -132,17 +149,30 @@ async def chat(body: ChatBody) -> dict[str, Any]:
     if llm_agent.detect_frustration(message):
         ctx.frustration_signals += 1
 
-    # RAG
+    # ——— Think: Checking RAG ———
+    steps.append({"phase": "think", "text": "Checking knowledge base (RAG) for relevant docs…"})
     rag_results = rag_engine.retrieve(message, top_k=TOP_K_RAG)
     rag_results = rag_engine.rerank_results(rag_results, message)
     rag_scores = [r["relevance_score"] for r in rag_results]
+    top_score = float(rag_scores[0]) if rag_scores else 0.0
+    if not rag_results:
+        steps.append({"phase": "observe", "text": "No matching documents in knowledge base."})
+    elif top_score < RAG_SCORE_THRESHOLD:
+        steps.append({"phase": "observe", "text": f"No strong match (best score {top_score:.2f}). Will try web search if query is iPhone-related."})
+    else:
+        steps.append({"phase": "observe", "text": f"Found {len(rag_results)} relevant chunk(s) (best score {top_score:.2f})."})
 
-    # Web fallback
-    web_results = []
+    # ——— Act/Observe: Web search (guardrail: only for iPhone-related queries) ———
+    web_results: list[dict] = []
     if web_search.is_web_search_needed(rag_scores, threshold=RAG_SCORE_THRESHOLD):
-        web_results = web_search.search(message, top_k=TOP_K_WEB)
+        if is_iphone_related_query(message):
+            steps.append({"phase": "act", "text": "Searching web (support.apple.com, apple.com, discussions.apple.com)…"})
+            web_results = web_search.search(message, top_k=TOP_K_WEB)
+            steps.append({"phase": "observe", "text": f"Found {len(web_results)} web result(s)."})
+        else:
+            steps.append({"phase": "observe", "text": "Web search skipped (only allowed for iPhone/Apple device troubleshooting)."})
 
-    # LLM
+    steps.append({"phase": "act", "text": "Generating response…"})
     history = ctx.get_history()
     llm_out = llm_agent.run(
         user_message=message,
@@ -151,25 +181,46 @@ async def chat(body: ChatBody) -> dict[str, Any]:
         web_context=web_results,
         image_description=image_description,
     )
-    ctx.add_turn("assistant", llm_out["text"])
+    final_text = llm_out["text"]
+    final_sources = llm_out.get("sources", [])
+
+    # ——— If response sounds like "I don't have that" and we didn't use web yet, try web search and retry ———
+    if llm_agent.sounds_like_no_knowledge(final_text) and not web_results and is_iphone_related_query(message):
+        steps.append({"phase": "observe", "text": "Answer not in knowledge base. Trying web search…"})
+        steps.append({"phase": "act", "text": "Searching support.apple.com, apple.com for more info…"})
+        web_results = web_search.search(message, top_k=TOP_K_WEB)
+        steps.append({"phase": "observe", "text": f"Found {len(web_results)} web result(s)."})
+        steps.append({"phase": "act", "text": "Generating response using web results…"})
+        llm_out_2 = llm_agent.run(
+            user_message=message,
+            conversation_history=history,
+            rag_context=rag_results,
+            web_context=web_results,
+            image_description=image_description,
+        )
+        final_text = llm_out_2["text"]
+        final_sources = llm_out_2.get("sources", [])
+
+    ctx.add_turn("assistant", final_text)
     ctx.current_issue = ctx.detect_issue_category()
     ctx.step_counter += 1
-    ctx.steps_attempted.append(llm_out.get("text", "")[:80])
+    ctx.steps_attempted.append(final_text[:80])
 
     # TTS
     audio_base64 = ""
     try:
-        audio_bytes = voice_tts.synthesize(llm_out["text"])
+        audio_bytes = voice_tts.synthesize(final_text)
         if audio_bytes:
             audio_base64 = base64.standard_b64encode(audio_bytes).decode("ascii")
     except Exception as e:
         logger.warning("TTS failed: %s", e)
 
     return {
-        "text": llm_out["text"],
+        "text": final_text,
         "audio_base64": audio_base64,
-        "sources": llm_out.get("sources", []),
+        "sources": final_sources,
         "session_id": session_id,
+        "steps": steps,
     }
 
 

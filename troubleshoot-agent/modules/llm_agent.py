@@ -27,6 +27,41 @@ Rules:
 """
 
 
+# Phrases that indicate the model said it doesn't have the answer (trigger web search retry)
+NO_KNOWLEDGE_PHRASES = [
+    "don't have that",
+    "do not have that",
+    "don't have information",
+    "do not have information",
+    "not in my knowledge",
+    "not in the knowledge base",
+    "no information about",
+    "i don't have",
+    "i do not have",
+    "i'm not able to find",
+    "i am not able to find",
+    "couldn't find",
+    "could not find",
+    "don't have any information",
+    "no info",
+    "no details",
+    "outside my knowledge",
+    "beyond my knowledge",
+    "limited to",
+    "only have information about",
+    "can't help with that",
+    "cannot help with that",
+]
+
+
+def sounds_like_no_knowledge(response_text: str) -> bool:
+    """True if the LLM response indicates it doesn't have the answer (so we should try web search)."""
+    if not response_text or not isinstance(response_text, str):
+        return False
+    text = response_text.lower().strip()
+    return any(p in text for p in NO_KNOWLEDGE_PHRASES)
+
+
 def detect_frustration(user_message: str) -> bool:
     """Simple heuristic + keyword detection for frustrated users."""
     if not user_message or not isinstance(user_message, str):

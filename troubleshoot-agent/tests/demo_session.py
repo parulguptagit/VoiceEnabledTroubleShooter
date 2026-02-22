@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from config import RAG_SCORE_THRESHOLD
 from modules import context_manager, llm_agent, rag_engine, web_search
 
 
@@ -17,7 +18,7 @@ def run_turn(ctx: context_manager.ConversationContext, user_msg: str) -> str:
     rag_results = rag_engine.rerank_results(rag_results, user_msg)
     rag_scores = [r["relevance_score"] for r in rag_results]
     web_results = []
-    if web_search.is_web_search_needed(rag_scores, threshold=0.75):
+    if web_search.is_web_search_needed(rag_scores, threshold=RAG_SCORE_THRESHOLD):
         web_results = web_search.search(user_msg, top_k=3)
     history = ctx.get_history()
     out = llm_agent.run(
